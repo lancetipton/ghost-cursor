@@ -1,5 +1,5 @@
 // @ts-nocheck
-import type { Page } from 'puppeteer'
+import type { Page } from 'playwright'
 
 // This injects a box into the page that moves with the mouse;
 // Useful for debugging
