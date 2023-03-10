@@ -1,5 +1,11 @@
 # Ghost Cursor
 
+#### Note: This `ghost-cursor` is a fork of the original project, which only supports Puppeteer. This package supports playwright, not ~~puppeteer~~
+
+#### TODO
+- [X] Get it working with playwright
+- [ ] Unify package interface to support both `playwright` and `puppeteer`
+
 <img src="https://media2.giphy.com/media/26ufp2LYURTvL5PRS/giphy.gif" width="100" align="right">
 
 Generate realistic, human-like mouse movement data between coordinates or navigate between elements with puppeteer
@@ -40,15 +46,15 @@ const route = path(from, to)
  */
 ```
 
-Usage with puppeteer:
+Usage with ~~puppeteer~~ playwright:
 
 ```js
 import { createCursor } from "ghost-cursor"
-import puppeteer from "puppeteer"
+import playwright from "playwright"
 
 const run = async (url) => {
   const selector = "#sign-up button"
-  const browser = await puppeteer.launch({ headless: false });
+  const browser = await playwright.chromium.launch({ headless: false });
   const page = await browser.newPage()
   const cursor = createCursor(page)
   await page.goto(url)
@@ -60,7 +66,7 @@ const run = async (url) => {
 }
 ```
 
-### Puppeteer-specific behavior
+### Playwright-specific behavior
 * `cursor.move()` will automatically overshoot or slightly miss and re-adjust for elements that are too far away
 from the cursor's starting point.
 * When moving over objects, a random coordinate that's within the element will be selected instead of
@@ -81,7 +87,7 @@ and they look quite human-like. (At least moreso than alternatives like perlin o
 ![](https://mamamoo.xetera.dev/😽🤵👲🧦👵.png)
 
 The magic comes from being able to set multiple points for the curve to go through. This is done by picking
-2 coordinates randomly in a limited area above and under the curve. 
+2 coordinates randomly in a limited area above and under the curve.
 
 <img src="https://mamamoo.xetera.dev/🧣👎😠🧟✍.png" width="400">
 
@@ -92,3 +98,4 @@ that way, so only one side of the line is picked when generating random points.
 When calculating how fast the mouse should be moving we use <a href="https://en.wikipedia.org/wiki/Fitts%27s_law">Fitts's Law</a>
 to determine the amount of points we should be returning relative to the width of the element being clicked on and the distance
 between the mouse and the object.
+
