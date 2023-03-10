@@ -1,11 +1,16 @@
 # Ghost Cursor
 
-#### Note: This `ghost-cursor` is a fork of the original project, which only supports Puppeteer. This package supports playwright, not ~~puppeteer~~
+## Note
 
-#### TODO
+This `ghost-cursor` is a fork of the [original](https://github.com/Xetera/ghost-cursor) project, which only supports Puppeteer. This package supports playwright, not ~~puppeteer~~
 
-- [X] Get it working with playwright
-- [ ] Unify package interface to support both `playwright` and `puppeteer`
+* I highly recommend using `playwright` due to the rich development it's undergone in comparison to `puppeteer`.
+* However, if you *really* need to hack on CDP internals, you should go with `puppeteer`.
+
+### TODO
+
+* [X] Get it working with playwright
+* [ ] Unify package interface to support both `playwright` and `puppeteer`
 
 <img src="https://media2.giphy.com/media/26ufp2LYURTvL5PRS/giphy.gif" width="100" align="right">
 
@@ -14,7 +19,7 @@ like the definitely-not-robot you are.
 
 > Oh yeah? Could a robot do _**this?**_
 
-## Installation
+### Installation
 
 ```sh
 yarn add ghost-cursor
@@ -26,7 +31,7 @@ or with npm
 npm install ghost-cursor
 ```
 
-## Usage
+### Usage
 
 Generating movement data between 2 coordinates.
 
@@ -74,9 +79,11 @@ const run = async (url) => {
 
 * `cursor.move()` will automatically overshoot or slightly miss and re-adjust for elements that are too far away
 from the cursor's starting point.
-- When moving over objects, a random coordinate that's within the element will be selected instead of
+
+* When moving over objects, a random coordinate that's within the element will be selected instead of
 hovering over the exact center of the element.
-- The speed of the mouse will take the distance and the size of the element you're clicking on into account.
+
+* The speed of the mouse will take the distance and the size of the element you're clicking on into account.
 
 <br>
 
@@ -84,7 +91,7 @@ hovering over the exact center of the element.
 
 > Ghost cursor in action on a form
 
-## How does it work
+#### How does it work
 
 Bezier curves do almost all the work here. They let us create an infinite amount of curves between any 2 points we want
 and they look quite human-like. (At least moreso than alternatives like perlin or simplex noise)
