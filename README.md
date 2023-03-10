@@ -3,6 +3,7 @@
 #### Note: This `ghost-cursor` is a fork of the original project, which only supports Puppeteer. This package supports playwright, not ~~puppeteer~~
 
 #### TODO
+
 - [X] Get it working with playwright
 - [ ] Unify package interface to support both `playwright` and `puppeteer`
 
@@ -18,12 +19,15 @@ like the definitely-not-robot you are.
 ```sh
 yarn add ghost-cursor
 ```
+
 or with npm
+
 ```sh
 npm install ghost-cursor
 ```
 
 ## Usage
+
 Generating movement data between 2 coordinates.
 
 ```js
@@ -67,11 +71,12 @@ const run = async (url) => {
 ```
 
 ### Playwright-specific behavior
+
 * `cursor.move()` will automatically overshoot or slightly miss and re-adjust for elements that are too far away
 from the cursor's starting point.
-* When moving over objects, a random coordinate that's within the element will be selected instead of
+- When moving over objects, a random coordinate that's within the element will be selected instead of
 hovering over the exact center of the element.
-* The speed of the mouse will take the distance and the size of the element you're clicking on into account.
+- The speed of the mouse will take the distance and the size of the element you're clicking on into account.
 
 <br>
 
@@ -99,3 +104,6 @@ When calculating how fast the mouse should be moving we use <a href="https://en.
 to determine the amount of points we should be returning relative to the width of the element being clicked on and the distance
 between the mouse and the object.
 
+#### Thanks
+
+Big thanks to [Xetera](https://github.com/Xetera) for creating the original package!

@@ -16,7 +16,7 @@
     "mouse-movement",
     "botting"
   ],
-  "author": "Xetera",
+  "author": "Xetera, Nico <nicomee@riseup.net>",
   "license": "ISC",
   "files": [
     "lib/**/*"
