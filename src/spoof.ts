@@ -1,4 +1,5 @@
-import { ElementHandle, Page, BoundingBox, CDPSession } from 'puppeteer'
+import type { ElementHandle, Page, CDPSession } from 'playwright'
+
 import {
   Vector,
   bezierCurve,
@@ -8,6 +9,13 @@ import {
   overshoot
 } from './math'
 export { default as installMouseHelper } from './mouse-helper'
+
+export interface BoundingBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
 export interface BoxOptions {
   readonly paddingPercentage?: number
@@ -81,16 +89,12 @@ const getRandomBoxPoint = (
   }
 }
 
-// The function signature to access the internal CDP client changed in puppeteer 14.4.1
-const getCDPClient = (page: any): CDPSession => typeof page._client === 'function' ? page._client() : page._client
+const getCDPClient = async (page: Page): Promise<CDPSession> => await page.context().newCDPSession(page)
 
 // Get a random point on a browser window
 export const getRandomPagePoint = async (page: Page): Promise<Vector> => {
-  const targetId: string = (page.target() as any)._targetId
-  const window = await getCDPClient(page).send(
-    'Browser.getWindowForTarget',
-    { targetId }
-  )
+  const client = await page.context().newCDPSession(page)
+  const window = await client.send('Browser.getWindowForTarget', {})
   return getRandomBoxPoint({
     x: origin.x,
     y: origin.y,
@@ -105,13 +109,13 @@ const getElementBox = async (
   element: ElementHandle,
   relativeToMainFrame: boolean = true
 ): Promise<BoundingBox | null> => {
-  const objectId = element.remoteObject().objectId
+  const objectId: string | undefined = (element as any)._objectId
   if (objectId === undefined) {
     return null
   }
 
   try {
-    const quads = await getCDPClient(page).send('DOM.getContentQuads', {
+    const quads = await (await getCDPClient(page)).send('DOM.getContentQuads', {
       objectId
     })
     const elementBox = {
@@ -122,14 +126,18 @@ const getElementBox = async (
     }
     if (!relativeToMainFrame) {
       const elementFrame = await element.contentFrame()
+      // const frameElement = await elementFrame?.frameElement()
       const iframes =
         elementFrame != null
-          ? await elementFrame.parentFrame()?.$x('//iframe')
+          ? await elementFrame.parentFrame()?.locator('//iframe').elementHandles()[0] as ElementHandle[]
           : null
       let frame: ElementHandle<Node> | undefined
       if (iframes != null) {
         for (const iframe of iframes) {
-          if ((await iframe.contentFrame()) === elementFrame) frame = iframe
+          if ((await iframe.contentFrame() === elementFrame)) {
+            frame = iframe
+            break
+          }
         }
       }
       if (frame != null) {
@@ -232,7 +240,11 @@ export const createCursor = (
         previous = v
       } catch (error) {
         // Exit function if the browser is no longer connected
-        if (!page.browser().isConnected()) return
+        const browser = page.context().browser()
+        if (browser === null) {
+          return
+        }
+        if (!browser.isConnected()) return
 
         console.debug('Warning: could not move mouse, error message:', error)
       }
@@ -310,12 +322,13 @@ export const createCursor = (
         if (typeof selector === 'string') {
           if (selector.startsWith('//') || selector.startsWith('(//')) {
             if (options?.waitForSelector !== undefined) {
-              await page.waitForXPath(selector, {
+              // note: playwright accepts xpath in the usual waitForSelector
+              await page.waitForSelector(selector, {
                 timeout: options.waitForSelector
               })
             }
-            const [handle] = await page.$x(selector)
-            elem = handle.asElement() as ElementHandle<Element>
+            const handle: ElementHandle | null = await page.$(selector)
+            elem = handle?.asElement() as ElementHandle<Element>
           } else {
             if (options?.waitForSelector !== undefined) {
               await page.waitForSelector(selector, {
@@ -331,16 +344,14 @@ export const createCursor = (
           }
         } else {
           // ElementHandle
-          elem = selector
+          elem = selector.asElement() as ElementHandle<Element>
         }
 
         // Make sure the object is in view
-        const objectId = elem.remoteObject().objectId
+        const objectId = (elem.asElement() as any)._objectId
         if (objectId !== undefined) {
           try {
-            await getCDPClient(page).send('DOM.scrollIntoViewIfNeeded', {
-              objectId
-            })
+            await (await getCDPClient(page)).send('DOM.scrollIntoViewIfNeeded', {})
           } catch (e) {
             // use regular JS scroll method as a fallback
             console.debug('Falling back to JS scroll method', e)
