@@ -8,6 +8,7 @@
   <body style="width: 1000px; height: 1000px">
     <div
       id="box"
+      onclick="increment()"
       style="
         left: 200;
         top: 40;
@@ -17,7 +18,7 @@
         height: 50px;
         background: #eee;
       "
-    ></div>
+    >0</div>
   </body>
   <script>
     const box = document.querySelector('#box')
@@ -27,5 +28,10 @@
     setTimeout(() => {
       box.style.top = Math.random() * 500
     }, 1000)
+
+    function increment(){
+      box.innerHTML = parseInt(box.innerHTML) + 1
+    }
+
   </script>
 </html>

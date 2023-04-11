@@ -1,4 +1,4 @@
-import type { ElementHandle, Page, CDPSession } from 'playwright'
+import type { Locator, ElementHandle, Page, CDPSession } from 'playwright'
 
 import {
   Vector,
@@ -9,6 +9,10 @@ import {
   overshoot
 } from './math'
 export { default as installMouseHelper } from './mouse-helper'
+
+export type Selector = NonLocatorSelector | Locator
+export type NonLocatorSelector = string | ElementHandle
+export type NonStringSelector = ElementHandle<Element> | Locator
 
 export interface BoundingBox {
   x: number
@@ -29,6 +33,7 @@ export interface MoveOptions extends BoxOptions {
 }
 
 export interface ClickOptions extends MoveOptions {
+  readonly timeout?: number
   readonly waitForClick?: number
 }
 
@@ -40,11 +45,11 @@ export interface PathOptions {
 export interface GhostCursor {
   toggleRandomMove: (random: boolean) => void
   click: (
-    selector?: string | ElementHandle,
+    selector?: Selector,
     options?: ClickOptions
   ) => Promise<void>
   move: (
-    selector: string | ElementHandle,
+    selector: Selector,
     options?: MoveOptions
   ) => Promise<void>
   moveTo: (destination: Vector) => Promise<void>
@@ -198,18 +203,91 @@ const intersectsElement = (vec: Vector, box: BoundingBox): boolean => {
   )
 }
 
+const isLocator = (selector: Selector): selector is Locator => {
+  return typeof (selector as Locator).locator === 'function'
+}
+
 const boundingBoxWithFallback = async (
   page: Page,
-  elem: ElementHandle<Element>
+  elem: NonStringSelector,
+  options?: ClickOptions
 ): Promise<BoundingBox> => {
-  let box = await getElementBox(page, elem)
+  const timeout = options?.timeout ?? 0
+  const opts = timeout > 0 ? { timeout } : undefined
+
+  let box = isLocator(elem)
+    ? await elem.boundingBox(opts)
+    : await getElementBox(page, elem)
+
   if (box == null) {
-    box = (await elem.evaluate((el: Element) =>
+    box = (await (elem as ElementHandle).evaluate((el: Element) =>
       el.getBoundingClientRect()
     )) as BoundingBox
   }
 
   return box
+}
+
+const ensureElementHandle = async (
+  page: Page,
+  selector: NonLocatorSelector,
+  options?: ClickOptions
+): Promise<ElementHandle<Element>> => {
+  let elem: ElementHandle<Element> | null = null
+  if (typeof selector === 'string') {
+    if (selector.startsWith('//') || selector.startsWith('(//')) {
+      if (options?.waitForSelector !== undefined) {
+        // note: playwright accepts xpath in the usual waitForSelector
+        await page.waitForSelector(selector, {
+          timeout: options.waitForSelector
+        })
+      }
+      const handle: ElementHandle | null = await page.$(selector)
+      elem = handle?.asElement() as ElementHandle<Element>
+    } else {
+      if (options?.waitForSelector !== undefined) {
+        await page.waitForSelector(selector, {
+          timeout: options.waitForSelector
+        })
+      }
+      elem = await page.$(selector)
+    }
+    if (elem === null) {
+      throw new Error(
+        `Could not find element with selector "${selector}", make sure you're waiting for the elements with "puppeteer.waitForSelector"`
+      )
+    }
+  } else {
+    // ElementHandle
+    elem = selector.asElement() as ElementHandle<Element>
+  }
+
+  // Make sure the object is in view
+  const objectId = (elem.asElement() as any)._objectId
+  if (objectId !== undefined) {
+    try {
+      await (await getCDPClient(page)).send('DOM.scrollIntoViewIfNeeded', {})
+    } catch (e) {
+      // use regular JS scroll method as a fallback
+      console.debug('Falling back to JS scroll method', e)
+      await elem.evaluate((e) => e.scrollIntoView({ block: 'center' }))
+      await new Promise((resolve) => setTimeout(resolve, 2000)) // Wait a bit until the scroll has finished
+    }
+  }
+
+  return elem
+}
+
+const ensureLocator = async (
+  selector: Locator,
+  options?: ClickOptions
+): Promise<Locator> => {
+  const timeout = options?.timeout ?? 0
+  const opts = timeout > 0 ? { timeout } : undefined
+
+  await selector.scrollIntoViewIfNeeded(opts)
+
+  return selector
 }
 
 export const createCursor = (
@@ -280,7 +358,7 @@ export const createCursor = (
     },
 
     async click (
-      selector?: string | ElementHandle,
+      selector?: Selector,
       options?: ClickOptions
     ): Promise<void> {
       actions.toggleRandomMove(false)
@@ -309,7 +387,7 @@ export const createCursor = (
       actions.toggleRandomMove(true)
     },
     async move (
-      selector: string | ElementHandle,
+      selector: Selector,
       options?: MoveOptions
     ): Promise<void> {
       const go = async (iteration: number): Promise<void> => {
@@ -318,48 +396,13 @@ export const createCursor = (
         }
 
         actions.toggleRandomMove(false)
-        let elem: ElementHandle<Element> | null = null
-        if (typeof selector === 'string') {
-          if (selector.startsWith('//') || selector.startsWith('(//')) {
-            if (options?.waitForSelector !== undefined) {
-              // note: playwright accepts xpath in the usual waitForSelector
-              await page.waitForSelector(selector, {
-                timeout: options.waitForSelector
-              })
-            }
-            const handle: ElementHandle | null = await page.$(selector)
-            elem = handle?.asElement() as ElementHandle<Element>
-          } else {
-            if (options?.waitForSelector !== undefined) {
-              await page.waitForSelector(selector, {
-                timeout: options.waitForSelector
-              })
-            }
-            elem = await page.$(selector)
-          }
-          if (elem === null) {
-            throw new Error(
-              `Could not find element with selector "${selector}", make sure you're waiting for the elements with "puppeteer.waitForSelector"`
-            )
-          }
-        } else {
-          // ElementHandle
-          elem = selector.asElement() as ElementHandle<Element>
-        }
 
-        // Make sure the object is in view
-        const objectId = (elem.asElement() as any)._objectId
-        if (objectId !== undefined) {
-          try {
-            await (await getCDPClient(page)).send('DOM.scrollIntoViewIfNeeded', {})
-          } catch (e) {
-            // use regular JS scroll method as a fallback
-            console.debug('Falling back to JS scroll method', e)
-            await elem.evaluate((e) => e.scrollIntoView({ block: 'center' }))
-            await new Promise((resolve) => setTimeout(resolve, 2000)) // Wait a bit until the scroll has finished
-          }
-        }
-        const box = await boundingBoxWithFallback(page, elem)
+        const elem = isLocator(selector)
+          ? await ensureLocator(selector, options)
+          : await ensureElementHandle(page, selector, options)
+
+        const box = await boundingBoxWithFallback(page, elem, options)
+
         const { height, width } = box
         const destination = getRandomBoxPoint(box, options)
         const dimensions = { height, width }
@@ -385,11 +428,10 @@ export const createCursor = (
 
         actions.toggleRandomMove(true)
 
-        const newBoundingBox = await boundingBoxWithFallback(page, elem)
+        const newBoundingBox = await boundingBoxWithFallback(page, elem, options)
 
         // It's possible that the element that is being moved towards
-        // has moved to a different location by the time
-        // the the time the mouseover animation finishes
+        // has moved to a different location by the time the mouseover animation finishes
         if (!intersectsElement(to, newBoundingBox)) {
           return await go(iteration + 1)
         }

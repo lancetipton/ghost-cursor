@@ -13,19 +13,52 @@ describe('Mouse movements', () => {
     await installMouseHelper(page)
     const html = await fs.readFile(join(__dirname, 'custom-page.html'), 'utf8')
     await page.setContent(html, { waitUntil: 'networkidle' })
-    // await page.goto('data:text/html,' + encodeURIComponent(html), {
-    //   waitUntil: 'networkidle'
-    // })
+  })
+
+  beforeEach(async () => {
+    const locator = await page.locator('#box')
+    await locator.evaluate(node => {
+      node.innerHTML = '0'
+    })
   })
 
   it('Should click on the element without throwing an error (CSS selector)', async () => {
     cursor = createCursor(page)
+
+    const locator = await page.locator('#box')
+    const orgAmount = await locator.innerHTML()
+    expect(orgAmount).toBe('0')
+
     await cursor.click('#box')
+
+    const amount = await locator.innerHTML()
+    expect(amount).toBe('1')
   })
 
   it('Should click on the element without throwing an error (XPath selector)', async () => {
     cursor = createCursor(page)
+
+    const locator = await page.locator('#box')
+    const orgAmount = await locator.innerHTML()
+    expect(orgAmount).toBe('0')
+
     await cursor.click('//*[@id="box"]')
+
+    const amount = await locator.innerHTML()
+    expect(amount).toBe('1')
+  })
+
+  it('Should accept a location as a selector without throwing an error', async () => {
+    cursor = createCursor(page)
+
+    const locator = await page.locator('#box')
+    const orgAmount = await locator.innerHTML()
+    expect(orgAmount).toBe('0')
+
+    await cursor.click(locator)
+
+    const amount = await locator.innerHTML()
+    expect(amount).toBe('1')
   })
 })
 
