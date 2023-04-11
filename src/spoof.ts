@@ -30,10 +30,10 @@ export interface MoveOptions extends BoxOptions {
   readonly moveDelay?: number
   readonly maxTries?: number
   readonly moveSpeed?: number
+  readonly timeout?: number
 }
 
 export interface ClickOptions extends MoveOptions {
-  readonly timeout?: number
   readonly waitForClick?: number
 }
 
