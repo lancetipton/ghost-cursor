@@ -48,7 +48,7 @@ describe('Mouse movements', () => {
     expect(amount).toBe('1')
   })
 
-  it('Should accept a location as a selector without throwing an error', async () => {
+  it('Should click on the element without throwing an error (Locator selector)', async () => {
     cursor = createCursor(page)
 
     const locator = await page.locator('#box')
